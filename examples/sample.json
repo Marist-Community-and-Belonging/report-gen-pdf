@@ -1,0 +1,113 @@
+{
+  "title": "Institutional Benchmarks",
+  "subtitle": "Marist compared with peer and aspirant groups",
+  "date": "October 2, 2026",
+  "author": "Office of Community and Belonging",
+  "office": "Office of Community and Belonging",
+  "phone": "(845) 575-3000",
+  "release": {
+    "collection_year": "2023–24",
+    "release_type": "final",
+    "note": "NCES/IPEDS final Complete Data Files; group medians exclude Marist"
+  },
+  "intro": "Selected measures from the public IPEDS benchmarking dashboard for the 2023–24 final collection, unless a trend chart notes otherwise.",
+  "chapters": [
+    {
+      "heading": "Overview",
+      "body": "Six headline measures: undergraduate enrollment, acceptance rate, first-year retention, six-year graduation, average net price, and Pell Grant recipient share. Peer and aspirant comparisons use institution-level medians.",
+      "figures": [
+        {
+          "kind": "bar",
+          "title": "First-year retention rate",
+          "unit": "percent",
+          "caption": "Full-time, first-time undergraduates returning the following fall (RET_PCF).",
+          "series": [
+            { "label": "Marist", "value": 89, "color": "marist" },
+            { "label": "Peer median", "value": 86.5, "color": "peer" },
+            { "label": "Aspirant median", "value": 94, "color": "aspirant" }
+          ]
+        },
+        {
+          "kind": "bar",
+          "title": "Six-year graduation rate",
+          "unit": "percent",
+          "caption": "Bachelor’s degree within six years for the applicable entering cohort (GBA6RTT).",
+          "series": [
+            { "label": "Marist", "value": 80, "color": "marist" },
+            { "label": "Peer median", "value": 78.5, "color": "peer" },
+            { "label": "Aspirant median", "value": 89.5, "color": "aspirant" }
+          ]
+        }
+      ],
+      "callouts": [
+        {
+          "label": "Reading the comparisons",
+          "body": "Peer and aspirant membership follows Marist’s published lists. Medians exclude Marist. Higher retention and graduation are favorable; lower average net price is favorable."
+        }
+      ]
+    },
+    {
+      "heading": "Graduation trend",
+      "body": "Across five final collections, Marist’s six-year graduation rate edged down from the late-2010s peak while remaining near the peer median and below the aspirant median.",
+      "figures": [
+        {
+          "kind": "line",
+          "title": "Six-year graduation rate, five final collections",
+          "unit": "percent",
+          "x_labels": ["2019–20", "2020–21", "2021–22", "2022–23", "2023–24"],
+          "caption": "GBA6RTT by collection year. Source: embedded dashboard overview extracts.",
+          "series": [
+            {
+              "label": "Marist",
+              "color": "marist",
+              "values": [84, 85, 82, 81, 80]
+            },
+            {
+              "label": "Peer median",
+              "color": "peer",
+              "values": [80.5, 81, 80.5, 78, 78.5]
+            },
+            {
+              "label": "Aspirant median",
+              "color": "aspirant",
+              "values": [90, 90, 89.5, 91, 89.5]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Affordability snapshot",
+      "body": "Average net price for aided full-time first-time undergraduates sits above both comparison medians in 2023–24. Pell recipient share is slightly below the peer median and above the aspirant median.",
+      "figures": [
+        {
+          "kind": "bar",
+          "title": "Average net price",
+          "unit": "usd",
+          "caption": "NPGRN2, nominal dollars.",
+          "series": [
+            { "label": "Marist", "value": 40106, "color": "marist" },
+            { "label": "Peer median", "value": 38012, "color": "peer" },
+            { "label": "Aspirant median", "value": 35112.5, "color": "aspirant" }
+          ]
+        },
+        {
+          "kind": "bar",
+          "title": "Pell Grant recipient share",
+          "unit": "percent",
+          "caption": "UPGRNTP, undergraduates awarded Federal Pell Grants.",
+          "series": [
+            { "label": "Marist", "value": 15, "color": "marist" },
+            { "label": "Peer median", "value": 17, "color": "peer" },
+            { "label": "Aspirant median", "value": 12.5, "color": "aspirant" }
+          ]
+        }
+      ],
+      "bullets": [
+        "Enrollment (EFUG): Marist 5,545; peer median 5,514.5; aspirant median 6,437.",
+        "Acceptance rate (DVADM01): Marist 65%; peer median 71%; aspirant median 27%."
+      ]
+    }
+  ],
+  "notes": "Sample figures from dashboard-primitives overview extracts, final collections 2019–20 through 2023–24. Definitions match docs/metric-definitions.md. Prefer processed JSON over live NCES downloads at render time."
+}
