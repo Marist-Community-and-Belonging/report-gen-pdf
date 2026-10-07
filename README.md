@@ -34,7 +34,7 @@ go run ./cmd/reportgen -in examples/sample.json -out out/sample.pdf
 ## Library
 
 ```go
-import "github.com/marist/report-gen-pdf/reportgen"
+import "github.com/Marist-Community-and-Belonging/report-gen-pdf/reportgen"
 
 report, err := reportgen.BuildFromProcessed(processedDir, 2023)
 pdf, err := reportgen.Generate(report, reportgen.Options{
@@ -45,6 +45,7 @@ pdf, err := reportgen.Generate(report, reportgen.Options{
 
 `Generate` returns PDF bytes and is safe for concurrent use. `BuildFromProcessed`
 reads `data/processed/*.json` only; it never fetches IPEDS.
+Use `BuildFromFS` when the extracts are embedded in an application binary.
 
 Compile an exported Typst project from its directory:
 

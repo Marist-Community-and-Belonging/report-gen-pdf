@@ -3,8 +3,9 @@ package reportgen
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -13,7 +14,13 @@ import (
 // BuildFromProcessed turns the dashboard's processed extracts into report JSON
 // without fetching IPEDS data again.
 func BuildFromProcessed(processedDir string, year int) ([]byte, error) {
-	ov, err := loadProcessed(processedDir, "overview", year)
+	return BuildFromFS(os.DirFS(processedDir), ".", year)
+}
+
+// BuildFromFS turns processed extracts in an fs.FS into report JSON. This lets
+// applications generate reports directly from embedded dashboard data.
+func BuildFromFS(content fs.FS, processedDir string, year int) ([]byte, error) {
+	ov, err := loadProcessed(content, processedDir, "overview", year)
 	if err != nil {
 		return nil, err
 	}
@@ -21,15 +28,15 @@ func BuildFromProcessed(processedDir string, year int) ([]byte, error) {
 	if len(metrics) == 0 {
 		return nil, fmt.Errorf("overview-%d.json: no metrics", year)
 	}
-	div, err := loadProcessed(processedDir, "diversity-access", year)
+	div, err := loadProcessed(content, processedDir, "diversity-access", year)
 	if err != nil {
 		return nil, err
 	}
-	suc, err := loadProcessed(processedDir, "success-equity", year)
+	suc, err := loadProcessed(content, processedDir, "success-equity", year)
 	if err != nil {
 		return nil, err
 	}
-	aff, err := loadProcessed(processedDir, "affordability-resources", year)
+	aff, err := loadProcessed(content, processedDir, "affordability-resources", year)
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +47,8 @@ func BuildFromProcessed(processedDir string, year int) ([]byte, error) {
 
 	chapters := withFigures([]any{
 		overviewChapter(ov),
-		trendChapter(processedDir, year),
-		diversityChapter(div, processedDir, year),
+		trendChapter(content, processedDir, year),
+		diversityChapter(div, content, processedDir, year),
 		successChapter(suc),
 		affordabilityChapter(aff),
 		profileChapter(ov, div, suc, aff),
@@ -51,9 +58,9 @@ func BuildFromProcessed(processedDir string, year int) ([]byte, error) {
 		"title":    "Institutional Benchmarks",
 		"subtitle": "Marist compared with peer and aspirant groups",
 		"date":     time.Now().Format("January 2, 2006"),
-		"author": "Office of Community and Belonging",
-		"office": "Office of Community and Belonging",
-		"phone":  "(845) 575-3000",
+		"author":   "Office of Community and Belonging",
+		"office":   "Office of Community and Belonging",
+		"phone":    "(845) 575-3000",
 		"release": map[string]any{
 			"collection_year": collYear,
 			"release_type":    str(rel["release_type"]),
@@ -99,15 +106,15 @@ func withFigures(chapters []any) []any {
 	return kept
 }
 
-func loadProcessed(dir, name string, year int) (map[string]any, error) {
-	path := filepath.Join(dir, fmt.Sprintf("%s-%d.json", name, year))
-	b, err := os.ReadFile(path)
+func loadProcessed(content fs.FS, dir, name string, year int) (map[string]any, error) {
+	file := path.Join(dir, fmt.Sprintf("%s-%d.json", name, year))
+	b, err := fs.ReadFile(content, file)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, fmt.Errorf("%s: %w", file, err)
 	}
 	var m map[string]any
 	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, fmt.Errorf("%s: %w", file, err)
 	}
 	return m, nil
 }
@@ -141,7 +148,7 @@ func overviewChapter(ov map[string]any) map[string]any {
 	}
 }
 
-func trendChapter(dir string, year int) map[string]any {
+func trendChapter(content fs.FS, dir string, year int) map[string]any {
 	// ponytail: fixed five-year window ending at selected year; widen if more collections land
 	years := []int{}
 	for y := year - 4; y <= year; y++ {
@@ -157,7 +164,7 @@ func trendChapter(dir string, year int) map[string]any {
 	order := []string{}
 
 	for _, y := range years {
-		ov, err := loadProcessed(dir, "overview", y)
+		ov, err := loadProcessed(content, dir, "overview", y)
 		if err != nil {
 			continue
 		}
@@ -206,7 +213,7 @@ func trendChapter(dir string, year int) map[string]any {
 	}
 }
 
-func diversityChapter(div map[string]any, dir string, year int) map[string]any {
+func diversityChapter(div map[string]any, content fs.FS, dir string, year int) map[string]any {
 	cats := asSlice(div["categories"])
 	catNames := make([]string, 0, len(cats))
 	catIDs := make([]string, 0, len(cats))
@@ -281,7 +288,7 @@ func diversityChapter(div map[string]any, dir string, year int) map[string]any {
 				"series":     series,
 			},
 			accessFigure(div),
-			diversityTrendFigure(dir, year),
+			diversityTrendFigure(content, dir, year),
 			diversityScatter(div),
 		},
 		"callouts": callouts,
@@ -326,11 +333,11 @@ func accessFigure(div map[string]any) map[string]any {
 
 // diversityTrendFigure tracks the diversity index, taking group medians across
 // institutions exactly as the dashboard trend chart does.
-func diversityTrendFigure(dir string, year int) map[string]any {
+func diversityTrendFigure(content fs.FS, dir string, year int) map[string]any {
 	labels, marist, peer, aspirant := []any{}, []any{}, []any{}, []any{}
 
 	for y := year - 4; y <= year; y++ {
-		div, err := loadProcessed(dir, "diversity-access", y)
+		div, err := loadProcessed(content, dir, "diversity-access", y)
 		if err != nil {
 			continue
 		}

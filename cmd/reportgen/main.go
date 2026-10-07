@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/marist/report-gen-pdf/reportgen"
+	"github.com/Marist-Community-and-Belonging/report-gen-pdf/reportgen"
 )
 
 func main() {

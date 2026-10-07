@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marist/report-gen-pdf/reportgen"
+	"github.com/Marist-Community-and-Belonging/report-gen-pdf/reportgen"
 )
 
 // processedDir points at the dashboard-primitives extracts. Override with
@@ -90,6 +90,12 @@ func TestBuildFromProcessed(t *testing.T) {
 	}
 	if !foundCompositionValues {
 		t.Error("composition chart omits exact reported percentages")
+	}
+}
+
+func TestBuildFromFS(t *testing.T) {
+	if _, err := reportgen.BuildFromFS(os.DirFS(processedDir(t)), ".", 2023); err != nil {
+		t.Fatal(err)
 	}
 }
 
