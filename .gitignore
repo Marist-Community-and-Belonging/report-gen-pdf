@@ -1,9 +1,8 @@
-# Binaries / test artifacts
-/reportgen
+# Binaries / test artifacts (build into bin/, never shadow the reportgen/ package)
+/bin/
 *.exe
 *.test
 *.out
-/bin/
 
 # Generated PDFs and export dirs
 /out/

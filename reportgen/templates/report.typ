@@ -1,0 +1,150 @@
+// Marist / OCB publishable dashboard report — US Letter
+#import "plots.typ": render-figure
+
+#let data = json(sys.inputs.at("data", default: "../data.json"))
+
+#let marist-red = rgb("#c91235")
+#let greystone = rgb("#63666f")
+#let body-ink = rgb("#202127")
+
+#let chapters = data.at("chapters", default: ())
+
+#set page(
+  paper: "us-letter",
+  margin: (top: 1.5in, bottom: 1in, left: 1.25in, right: 1.25in),
+  header: context {
+    if counter(page).get().first() == 1 {
+      v(0.5in)
+      align(center)[
+        #image("../assets/ocb-header.jpg", height: 0.7in)
+      ]
+    } else {
+      set text(font: "Inter", size: 9pt, fill: greystone)
+      grid(
+        columns: (1fr, 1fr),
+        align(left)[#data.at("office", default: "Office of Community and Belonging")],
+        align(right)[#data.at("title", default: "")],
+      )
+      v(4pt)
+      line(length: 100%, stroke: 0.5pt + rgb("#d9dae4"))
+    }
+  },
+  header-ascent: 0.3in,
+  footer: context {
+    set text(font: "Inter", size: 9pt, fill: greystone)
+    set par(leading: 12pt)
+    line(length: 100%, stroke: 0.5pt + rgb("#d9dae4"))
+    v(6pt)
+    grid(
+      columns: (1fr, auto),
+      align(left)[
+        #data.at("office", default: "Office of Community and Belonging")
+        #if data.at("phone", default: "") != "" [ · #data.phone]
+      ],
+      align(right)[Page #counter(page).display()],
+    )
+  },
+  footer-descent: 0.35in,
+)
+
+#set text(font: "Inter", size: 11pt, fill: body-ink)
+#set par(leading: 0.7em, justify: true, spacing: 0.9em)
+#set heading(numbering: none)
+
+#show heading.where(level: 1): it => {
+  set text(font: "Source Serif Pro", size: 24pt, weight: "regular", fill: body-ink)
+  block(above: 0pt, below: 10pt, it.body)
+}
+
+#show heading.where(level: 2): it => {
+  set text(font: "Source Serif Pro", size: 15pt, weight: "semibold", fill: body-ink)
+  block(above: 1.4em, below: 0.55em, breakable: false, it.body)
+}
+
+#show heading.where(level: 3): it => {
+  set text(font: "Inter", size: 11pt, weight: "bold", fill: body-ink)
+  block(above: 1em, below: 0.4em, it.body)
+}
+
+// —— Cover / title block ——
+= #data.title
+
+#if data.at("subtitle", default: "") != "" [
+  #text(font: "Inter", size: 13pt, fill: greystone, weight: "semibold")[#data.subtitle]
+  #v(6pt)
+]
+
+#text(font: "Inter", size: 10pt, fill: greystone)[
+  #data.at("date", default: "")
+  #if data.at("author", default: "") != "" [ · #data.author]
+]
+
+#if data.at("release", default: none) != none [
+  #v(4pt)
+  #text(font: "Inter", size: 9pt, fill: greystone)[
+    IPEDS #data.release.at("collection_year", default: "")
+    (#data.release.at("release_type", default: "final"))
+    #if data.release.at("note", default: "") != "" [ — #data.release.note]
+  ]
+]
+
+#v(8pt)
+#line(length: 100%, stroke: 1.5pt + marist-red)
+#v(14pt)
+
+#if data.at("intro", default: "") != "" [
+  #text(font: "Inter", size: 11pt, weight: "semibold")[#data.intro]
+  #v(12pt)
+]
+
+// —— Chapters ——
+#for chapter in chapters [
+  #let figures = chapter.at("figures", default: ())
+  #block(breakable: false)[
+    == #chapter.heading
+
+    #if chapter.at("body", default: "") != "" [
+      #par[#chapter.body]
+    ]
+
+    #if chapter.at("bullets", default: ()) != () [
+      #v(4pt)
+      #for item in chapter.bullets [
+        - #item
+      ]
+    ]
+
+    #if figures.len() > 0 [
+      #v(10pt)
+      #render-figure(figures.first())
+    ]
+  ]
+
+  #if figures.len() > 1 [
+    #for fig in figures.slice(1) [
+      #v(10pt)
+      #render-figure(fig)
+    ]
+  ]
+
+  #for callout in chapter.at("callouts", default: ()) [
+    #v(8pt)
+    #block(
+      width: 100%,
+      inset: (left: 10pt, rest: 8pt),
+      stroke: (left: 2.5pt + marist-red),
+      fill: rgb("#f6f7f8"),
+    )[
+      #if callout.at("label", default: "") != "" [
+        #text(size: 9pt, weight: "bold", fill: marist-red)[#callout.label]
+        #v(2pt)
+      ]
+      #text(size: 10pt)[#callout.at("body", default: "")]
+    ]
+  ]
+]
+
+#if data.at("notes", default: "") != "" [
+  == Notes and sources
+  #text(size: 9.5pt, fill: greystone)[#data.notes]
+]
