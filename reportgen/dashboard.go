@@ -75,10 +75,10 @@ func BuildFromFS(content fs.FS, processedDir string, year int) ([]byte, error) {
 				floatOf(asMap(firstMetric["aspirant"])["count"]),
 			) +
 			"Each figure identifies its reporting period or cohort.",
-		"chapters": chapters,
-		"notes": "Source: NCES/IPEDS Complete Data Files (final), via dashboard-primitives processed extracts. " +
-			"Campus Involvement (live CampusGroups feed) is omitted from this static export. " +
-			"Metric definitions follow docs/metric-definitions.md in dashboard-primitives.",
+		"chapters":       chapters,
+		"references":     sourceReferences(ov),
+		"reference_note": fmt.Sprintf("Final NCES/IPEDS Complete Data Files; retrieved %s. Comparison summaries exclude Marist and use institution-level values.", str(rel["retrieved_at"])),
+		"source_url":     "https://nces.ed.gov/ipeds/use-the-data",
 	}
 	return json.MarshalIndent(doc, "", "  ")
 }
@@ -136,8 +136,8 @@ func overviewChapter(ov map[string]any) map[string]any {
 	}
 	return map[string]any{
 		"heading": "Overview",
-		"body": "Six headline measures with Marist marked against peer and aspirant interquartile ranges. " +
-			"Favorable direction follows the dashboard rules (higher except average net price, where lower is favorable).",
+		"anchor":  "overview",
+		"body":    "Higher is favorable except average net price, where lower is favorable.",
 		"figures": collateBullets(figs),
 		"callouts": []any{map[string]any{
 			"label": "Reading IQR bullets",
@@ -196,7 +196,6 @@ func trendChapter(content fs.FS, dir string, year int) map[string]any {
 			"title":    s.title + ", multi-year",
 			"unit":     s.unit,
 			"x_labels": s.labels,
-			"caption":  "Final collections. Peer/aspirant = group medians.",
 			"series": []any{
 				map[string]any{"label": "Marist", "color": "marist", "values": s.marist},
 				map[string]any{"label": "Peer median", "color": "peer", "values": s.peer},
@@ -206,7 +205,8 @@ func trendChapter(content fs.FS, dir string, year int) map[string]any {
 	}
 	return map[string]any{
 		"heading": "Multi-year trends",
-		"body":    "Same overview metrics across available final collections ending at the selected year.",
+		"anchor":  "multi-year-trends",
+		"body":    "Five final collections ending with the selected year.",
 		"figures": figs,
 	}
 }
@@ -274,8 +274,8 @@ func diversityChapter(div map[string]any, content fs.FS, dir string, year int) m
 	}
 	return map[string]any{
 		"heading": "Diversity and access",
-		"body": "Enrollment-weighted race/ethnicity composition, access indicators, and how the Marist diversity index " +
-			"moved against peer and aspirant medians.",
+		"anchor":  "diversity-access",
+		"body":    "",
 		"figures": []any{
 			map[string]any{
 				"kind":       "stacked",
@@ -459,22 +459,21 @@ func successChapter(suc map[string]any) map[string]any {
 		})
 	}
 	figs = append(figs, map[string]any{
-		"kind":    "grouped",
-		"title":   "Equity gaps vs institution six-year rate",
-		"unit":    "pp",
-		"caption": str(asMap(suc["small_cohort_policy"])["message"]),
-		"rows":    gapRows,
+		"kind":  "grouped",
+		"title": "Equity gaps vs institution six-year rate",
+		"unit":  "pp",
+		"rows":  gapRows,
 	})
 	figs = append(figs, map[string]any{
-		"kind":    "grouped",
-		"title":   "Subgroup six-year graduation rates",
-		"unit":    "percent",
-		"caption": "Exact Marist rates and comparison-group medians. Subgroup rates are descriptive and are not ranked.",
-		"rows":    rateRows,
+		"kind":  "grouped",
+		"title": "Subgroup six-year graduation rates",
+		"unit":  "percent",
+		"rows":  rateRows,
 	})
 
 	return map[string]any{
 		"heading": "Success and equity",
+		"anchor":  "success-equity",
 		"body": fmt.Sprintf(
 			"Additional outcomes for the %s context; retention and institution six-year graduation appear in Overview. Subgroup gaps are percentage points versus the institution six-year rate (%.0f%%).",
 			str(suc["cohort_year"]), floatOf(suc["institution_rate"]),
@@ -535,7 +534,8 @@ func affordabilityChapter(aff map[string]any) map[string]any {
 
 	return map[string]any{
 		"heading": "Affordability",
-		"body":    "Net prices by family income for aided full-time first-time students. Average net price and Pell share appear in Overview.",
+		"anchor":  "affordability",
+		"body":    "Average net price and Pell share appear in Overview.",
 		"figures": figs,
 	}
 }
@@ -599,8 +599,8 @@ func profileChapter(ov, div, suc, aff map[string]any) map[string]any {
 
 	return map[string]any{
 		"heading": "Marist profile",
-		"body": "Every Marist figure in this report for the selected collection, with no comparison group. " +
-			"Multi-year movement is in the trends chapter.",
+		"anchor":  "marist-profile",
+		"body":    "",
 		"figures": figs,
 	}
 }
@@ -653,6 +653,47 @@ func metricCaption(m map[string]any) string {
 		parts = append(parts, "Source: "+strings.TrimSpace(component+" "+variable))
 	}
 	return strings.Join(parts, ". ") + "."
+}
+
+func sourceReferences(ov map[string]any) []any {
+	metrics := map[string]map[string]any{}
+	for _, raw := range asSlice(ov["metrics"]) {
+		m := asMap(raw)
+		metrics[str(m["metric_id"])] = m
+	}
+	source := func(id string) string {
+		m := metrics[id]
+		if m == nil {
+			return ""
+		}
+		return strings.TrimSpace(str(m["source_component"]) + " " + str(m["source_variable"]))
+	}
+	return []any{
+		map[string]any{
+			"section":  "Overview",
+			"anchor":   "overview",
+			"source":   strings.Join([]string{source("undergraduate_enrollment"), source("acceptance_rate"), source("retention_rate"), source("six_year_graduation_rate"), source("pell_share"), source("average_net_price")}, "; "),
+			"coverage": "Enrollment, admissions, retention, six-year graduation, Pell participation, and average net price.",
+		},
+		map[string]any{
+			"section":  "Diversity and access",
+			"anchor":   "diversity-access",
+			"source":   source("undergraduate_enrollment") + " PCUENR*; " + source("six_year_graduation_rate") + "; " + source("pell_share"),
+			"coverage": "Race/ethnicity composition, reported sex, access measures, diversity index, and graduation relationship.",
+		},
+		map[string]any{
+			"section":  "Success and equity",
+			"anchor":   "success-equity",
+			"source":   source("retention_rate") + "; " + source("six_year_graduation_rate") + " GBA4RTT, GBA6RT*, PGBA6RT, SSBA6RT, NRBA6RT",
+			"coverage": "Retention, four- and six-year completion, subgroup rates, and percentage-point gaps.",
+		},
+		map[string]any{
+			"section":  "Affordability",
+			"anchor":   "affordability",
+			"source":   source("pell_share") + "; " + source("average_net_price") + " NPT412-NPT452",
+			"coverage": "Pell participation, average net price, and net price by family-income band.",
+		},
+	}
 }
 
 func statValue(v any, unit string) string {

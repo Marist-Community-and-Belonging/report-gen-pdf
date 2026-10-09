@@ -32,7 +32,11 @@ func TestBuildFromProcessed(t *testing.T) {
 		t.Fatal(err)
 	}
 	var doc struct {
-		Intro    string `json:"intro"`
+		Intro      string `json:"intro"`
+		References []struct {
+			Section string `json:"section"`
+			Source  string `json:"source"`
+		} `json:"references"`
 		Chapters []struct {
 			Heading string `json:"heading"`
 			Figures []struct {
@@ -62,6 +66,15 @@ func TestBuildFromProcessed(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(doc.Intro), "dashboard") {
 		t.Errorf("intro references dashboard: %q", doc.Intro)
+	}
+	referenceText := ""
+	for _, reference := range doc.References {
+		referenceText += " " + reference.Section + " " + reference.Source
+	}
+	for _, source := range []string{"DRVEF2023 EFUG", "DRVADM2023 DVADM01", "EF2023D RET_PCF", "DRVGR2023 GBA6RTT", "sfa2223_p1 UPGRNTP", "sfa2223_p2 NPGRN2"} {
+		if !strings.Contains(referenceText, source) {
+			t.Errorf("references omit source %q: %q", source, referenceText)
+		}
 	}
 	// One chapter per dashboard page, minus the live campus-involvement feed.
 	want := []string{

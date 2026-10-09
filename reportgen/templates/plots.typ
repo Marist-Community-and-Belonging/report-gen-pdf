@@ -246,7 +246,7 @@
           (gutter-l + plot-w + 0.18, y),
           stack(
             dir: ttb,
-            spacing: 0pt,
+            spacing: 1.2pt,
             text(font: "Inter", size: if compact { 5.7pt } else { 6.5pt }, fill: brand.muted)[
               med #fmt-val(b.median, unit)
             ],
@@ -388,7 +388,7 @@
   let row-h = calc.max(nv * bar-h + 0.30, 0.62)
   let chart-h = rows.len() * row-h
   let gutter-l = 3.9
-  let gutter-r = 0.3
+  let gutter-r = if sc.lo >= 0 { 1.6 } else { 0.3 }
   let plot-w = PW - gutter-l - gutter-r
 
   let px(v) = gutter-l + ((float(v) - sc.lo) / sc.span) * plot-w
@@ -430,18 +430,28 @@
           let c = series-fill(v.at("color", default: "marist"))
           rect((zero, y - bar-h * 0.38), (x1, y + bar-h * 0.38), fill: c, stroke: none)
           if v.at("mean", default: none) != none {
-            line(
-              (px(v.mean), y - bar-h * 0.48),
-              (px(v.mean), y + bar-h * 0.48),
-              stroke: (paint: c.darken(15%), thickness: 1.1pt, dash: "dashed"),
+            circle(
+              (px(v.mean), y),
+              radius: 0.06,
+              fill: white,
+              stroke: 1pt + c.darken(15%),
             )
           }
+          let label-x = if sc.lo >= 0 {
+            gutter-l + plot-w + gutter-r
+          } else {
+            x1 + (if float(v.value) < 0 { -0.22 } else { 0.22 })
+          }
           content(
-            (x1 + (if float(v.value) < 0 { -0.1 } else { 0.1 }), y),
-            text(font: "Inter", size: 6.2pt, weight: "semibold", fill: brand.ink)[
-              #fmt-val(v.value, unit)
-            ],
-            anchor: if float(v.value) < 0 { "east" } else { "west" },
+            (label-x, y),
+            box(
+              inset: (left: 1pt, right: 1pt),
+              fill: white,
+              text(font: "Inter", size: 6.2pt, weight: "semibold", fill: brand.ink)[
+                #fmt-val(v.value, unit)
+              ],
+            ),
+            anchor: if sc.lo >= 0 or float(v.value) < 0 { "east" } else { "west" },
           )
         }
       }
@@ -453,7 +463,7 @@
       )))
     }
     #if rows.any(r => r.values.any(v => v.at("mean", default: none) != none)) [
-      #text(font: "Inter", size: 7pt, fill: brand.muted)[Dashed ticks show comparison-group means.]
+      #text(font: "Inter", size: 7pt, fill: brand.muted)[Hollow dots show comparison-group means.]
     ]
     #fig-caption(figure)
   ]
@@ -563,8 +573,27 @@
         }
       }
     })
-    #v(6pt)
-    #{
+    #if series.len() == 1 {
+      let s = series.first()
+      v(5pt)
+      for (i, lab) in cats.enumerate() [
+        #box[
+          #box(
+            baseline: 1pt,
+            width: 6pt,
+            height: 6pt,
+            radius: 1pt,
+            fill: category-palette.at(calc.rem(i, category-palette.len())),
+          )
+          #h(3pt)
+          #text(font: "Inter", size: 7pt, fill: brand.muted)[
+            #lab #fmt-val(s.at("display_values", default: s.values).at(i), "percent")
+          ]
+        ]
+        #h(8pt)
+      ]
+    } else {
+      v(6pt)
       let cells = ()
       cells.push(box(width: 100%, inset: 3pt, fill: brand.grid)[
         #text(font: "Inter", size: 7pt, weight: "semibold", fill: brand.ink)[Category]

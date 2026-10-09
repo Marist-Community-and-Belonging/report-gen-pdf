@@ -80,7 +80,7 @@
 }
 
 // —— Cover / title block ——
-= #data.title
+#heading(level: 1, outlined: false, data.title)
 
 #if data.at("subtitle", default: "") != "" [
   #text(font: "Inter", size: 13pt, fill: greystone, weight: "semibold")[#data.subtitle]
@@ -110,12 +110,22 @@
   #v(12pt)
 ]
 
+#outline(
+  title: [#text(font: "Source Serif Pro", size: 15pt, weight: "semibold")[Contents]],
+  depth: 2,
+  indent: 0pt,
+)
+
 // —— Chapters ——
 #for chapter in chapters [
   #pagebreak(weak: true)
   #let figures = chapter.at("figures", default: ())
   #block(breakable: false)[
-    == #chapter.heading
+    #if chapter.at("anchor", default: "") != "" [
+      #heading(level: 2, chapter.heading)#label(chapter.anchor)
+    ] else [
+      #heading(level: 2, chapter.heading)
+    ]
 
     #if chapter.at("body", default: "") != "" [
       #par[#chapter.body]
@@ -152,7 +162,33 @@
   ]
 ]
 
-#if data.at("notes", default: "") != "" [
-  == Notes and sources
-  #text(size: 9.5pt, fill: greystone)[#data.notes]
+#let references = data.at("references", default: ())
+#if references.len() > 0 [
+  == References
+  #if data.at("reference_note", default: "") != "" [
+    #text(size: 9pt, fill: greystone)[#data.reference_note]
+    #v(6pt)
+  ]
+  #table(
+    columns: (1.25fr, 2.15fr, 2.4fr),
+    inset: (x: 5pt, y: 4pt),
+    stroke: (x: none, y: 0.5pt + rgb("#d9dae4")),
+    fill: (x, y) => if y == 0 { rgb("#f1f2f4") } else { white },
+    table.header(
+      [#text(size: 8pt, weight: "bold")[Section]],
+      [#text(size: 8pt, weight: "bold")[IPEDS component / variable]],
+      [#text(size: 8pt, weight: "bold")[Measures]],
+    ),
+    ..references.map(ref => (
+      [#text(size: 8pt, weight: "semibold")[#link(label(ref.anchor))[#ref.section]]],
+      [#set par(justify: false)
+       #text(size: 7.5pt, fill: greystone)[#ref.source]],
+      [#set par(justify: false)
+       #text(size: 7.5pt, fill: greystone)[#ref.coverage]],
+    )).flatten(),
+  )
+  #if data.at("source_url", default: "") != "" [
+    #v(6pt)
+    #text(size: 9pt, fill: greystone)[Official source: #link(data.source_url)[NCES/IPEDS Use the Data].]
+  ]
 ]
