@@ -36,8 +36,17 @@ func TestBuildFromProcessed(t *testing.T) {
 		Chapters []struct {
 			Heading string `json:"heading"`
 			Figures []struct {
-				Kind   string `json:"kind"`
-				Title  string `json:"title"`
+				Kind  string `json:"kind"`
+				Title string `json:"title"`
+				Bands []struct {
+					Mean float64 `json:"mean"`
+				} `json:"bands"`
+				Figures []struct {
+					Title string `json:"title"`
+					Bands []struct {
+						Mean float64 `json:"mean"`
+					} `json:"bands"`
+				} `json:"figures"`
 				Series []struct {
 					DisplayValues []float64 `json:"display_values"`
 				} `json:"series"`
@@ -47,23 +56,28 @@ func TestBuildFromProcessed(t *testing.T) {
 	if err := json.Unmarshal(b, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains([]byte(doc.Intro), []byte("19 institutions: 10 peers and 8 aspirants")) {
-		t.Errorf("intro omits dashboard comparison counts: %q", doc.Intro)
+	if !bytes.Contains([]byte(doc.Intro), []byte("final NCES/IPEDS Complete Data Files")) ||
+		!bytes.Contains([]byte(doc.Intro), []byte("19 institutions: Marist, 10 peers, and 8 aspirants")) {
+		t.Errorf("intro omits source or comparison context: %q", doc.Intro)
+	}
+	if strings.Contains(strings.ToLower(doc.Intro), "dashboard") {
+		t.Errorf("intro references dashboard: %q", doc.Intro)
 	}
 	// One chapter per dashboard page, minus the live campus-involvement feed.
 	want := []string{
 		"Overview",
+		"Marist profile",
 		"Multi-year trends",
 		"Diversity and access",
 		"Success and equity",
 		"Affordability",
-		"Marist profile",
 	}
 	if len(doc.Chapters) != len(want) {
 		t.Fatalf("want %d chapters, got %d", len(want), len(doc.Chapters))
 	}
 	foundSubgroupRates := false
 	foundCompositionValues := false
+	foundComparisonMeans := false
 	for i, c := range doc.Chapters {
 		if c.Heading != want[i] {
 			t.Errorf("chapter %d: want %q, got %q", i, want[i], c.Heading)
@@ -73,12 +87,30 @@ func TestBuildFromProcessed(t *testing.T) {
 		}
 		for _, f := range c.Figures {
 			switch f.Kind {
-			case "bar", "grouped", "line", "bullet", "stacked", "scatter", "stats":
+			case "bar", "grouped", "line", "bullet", "bullet-grid", "stacked", "scatter", "stats":
 			default:
 				t.Errorf("chapter %q: unknown figure kind %q", c.Heading, f.Kind)
 			}
 			if c.Heading == "Success and equity" && f.Title == "Subgroup six-year graduation rates" {
 				foundSubgroupRates = true
+			}
+			titles := []string{f.Title}
+			for _, nested := range f.Figures {
+				titles = append(titles, nested.Title)
+				for _, band := range nested.Bands {
+					foundComparisonMeans = foundComparisonMeans || band.Mean != 0
+				}
+			}
+			for _, band := range f.Bands {
+				foundComparisonMeans = foundComparisonMeans || band.Mean != 0
+			}
+			for _, title := range titles {
+				if c.Heading == "Success and equity" && (title == "First-year retention" || title == "Six-year graduation") {
+					t.Errorf("chapter %q repeats overview figure %q", c.Heading, title)
+				}
+			}
+			if c.Heading == "Affordability" && (f.Title == "Average net price" || f.Title == "Pell Grant recipient share") {
+				t.Errorf("chapter %q repeats overview figure %q", c.Heading, f.Title)
 			}
 			if f.Title == "Undergraduate composition" && len(f.Series) > 0 && len(f.Series[0].DisplayValues) > 0 {
 				foundCompositionValues = true
@@ -90,6 +122,9 @@ func TestBuildFromProcessed(t *testing.T) {
 	}
 	if !foundCompositionValues {
 		t.Error("composition chart omits exact reported percentages")
+	}
+	if !foundComparisonMeans {
+		t.Error("comparison charts omit dashboard means")
 	}
 }
 

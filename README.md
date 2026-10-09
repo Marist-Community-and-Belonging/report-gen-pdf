@@ -71,7 +71,7 @@ ignores the default.
 | Field | Notes |
 |---|---|
 | `chapters[]` | `heading`, `body`; optional `bullets`, `figures`, `callouts` |
-| `figures[].kind` | `bar` \| `grouped` \| `line` \| `bullet` \| `stacked` \| `scatter` \| `stats` |
+| `figures[].kind` | `bar` \| `grouped` \| `line` \| `bullet` \| `bullet-grid` \| `stacked` \| `scatter` \| `stats` |
 | `unit` | `percent` \| `usd` \| `pp` \| `index` \| `count` |
 | optional | `intro`, `release`, `notes`, `office`, `phone`, `author` |
 
@@ -82,11 +82,11 @@ See `examples/sample.json`.
 | Chapter | Dashboard page |
 |---|---|
 | Overview | `index.html` |
+| Marist profile | `marist-profile.html` |
 | Multi-year trends | `index.html` trends |
 | Diversity and access | `diversity-access.html` |
 | Success and equity | `success-equity.html` |
 | Affordability | `affordability-resources.html` |
-| Marist profile | `marist-profile.html` |
 
 Campus Involvement (live CampusGroups feed) is omitted. Empty-figure chapters
 are dropped (e.g. no trends chapter for the earliest collection).

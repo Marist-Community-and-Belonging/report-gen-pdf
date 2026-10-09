@@ -47,11 +47,11 @@ func BuildFromFS(content fs.FS, processedDir string, year int) ([]byte, error) {
 
 	chapters := withFigures([]any{
 		overviewChapter(ov),
+		profileChapter(ov, div, suc, aff),
 		trendChapter(content, processedDir, year),
 		diversityChapter(div, content, processedDir, year),
 		successChapter(suc),
 		affordabilityChapter(aff),
-		profileChapter(ov, div, suc, aff),
 	})
 
 	doc := map[string]any{
@@ -64,19 +64,17 @@ func BuildFromFS(content fs.FS, processedDir string, year int) ([]byte, error) {
 		"release": map[string]any{
 			"collection_year": collYear,
 			"release_type":    str(rel["release_type"]),
-			"note": fmt.Sprintf(
-				"%s; retrieved %s; group medians exclude Marist",
-				str(rel["source"]), str(rel["retrieved_at"]),
-			),
+			"note":            "Retrieved " + str(rel["retrieved_at"]),
 		},
-		"intro": "Auto-built from the same processed IPEDS extracts that power the public benchmarking dashboard. " +
+		"intro": "Source data come from final NCES/IPEDS Complete Data Files for enrollment, admissions, retention, graduation, student aid, and net price. " +
 			fmt.Sprintf(
-				"The final collection includes %.0f institutions: %.0f peers and %.0f aspirants, with Marist excluded from both groups. ",
+				"The %s collection covers %.0f institutions: Marist, %.0f peers, and %.0f aspirants. Marist is excluded from comparison-group summaries. ",
+				collYear,
 				floatOf(ov["institution_count"]),
 				floatOf(asMap(firstMetric["peer"])["count"]),
 				floatOf(asMap(firstMetric["aspirant"])["count"]),
 			) +
-			"IQR bands on overview bullets match the dashboard distribution view.",
+			"Each figure identifies its reporting period or cohort.",
 		"chapters": chapters,
 		"notes": "Source: NCES/IPEDS Complete Data Files (final), via dashboard-primitives processed extracts. " +
 			"Campus Involvement (live CampusGroups feed) is omitted from this static export. " +
@@ -140,10 +138,10 @@ func overviewChapter(ov map[string]any) map[string]any {
 		"heading": "Overview",
 		"body": "Six headline measures with Marist marked against peer and aspirant interquartile ranges. " +
 			"Favorable direction follows the dashboard rules (higher except average net price, where lower is favorable).",
-		"figures": figs,
+		"figures": collateBullets(figs),
 		"callouts": []any{map[string]any{
 			"label": "Reading IQR bullets",
-			"body":  "Each shaded band spans Q1–Q3 for the comparison group. The dark tick is the group median, and the red line is Marist.",
+			"body":  "Each shaded band spans Q1–Q3 for the comparison group. The solid tick is the median, the dashed tick is the mean, and the red line is Marist.",
 		}},
 	}
 }
@@ -415,6 +413,9 @@ func successChapter(suc map[string]any) map[string]any {
 	figs := []any{}
 	for _, raw := range asSlice(suc["outcomes"]) {
 		m := asMap(raw)
+		if id := str(m["metric_id"]); id == "retention" || id == "six_year_graduation" {
+			continue
+		}
 		figs = append(figs, map[string]any{
 			"kind":    "bullet",
 			"title":   str(m["display_name"]),
@@ -427,6 +428,7 @@ func successChapter(suc map[string]any) map[string]any {
 			},
 		})
 	}
+	figs = collateBullets(figs)
 
 	gapRows := []any{}
 	rateRows := []any{}
@@ -451,8 +453,8 @@ func successChapter(suc map[string]any) map[string]any {
 			"label": str(sg["display_name"]),
 			"values": []any{
 				map[string]any{"label": "Marist", "value": sg["value"], "color": "marist"},
-				map[string]any{"label": "Peer median", "value": asMap(sg["peer"])["median"], "color": "peer"},
-				map[string]any{"label": "Aspirant median", "value": asMap(sg["aspirant"])["median"], "color": "aspirant"},
+				map[string]any{"label": "Peer median", "value": asMap(sg["peer"])["median"], "mean": asMap(sg["peer"])["mean"], "color": "peer"},
+				map[string]any{"label": "Aspirant median", "value": asMap(sg["aspirant"])["median"], "mean": asMap(sg["aspirant"])["mean"], "color": "aspirant"},
 			},
 		})
 	}
@@ -474,17 +476,30 @@ func successChapter(suc map[string]any) map[string]any {
 	return map[string]any{
 		"heading": "Success and equity",
 		"body": fmt.Sprintf(
-			"Outcomes for the %s context. Subgroup gaps are percentage points versus the institution six-year rate (%.0f%%).",
+			"Additional outcomes for the %s context; retention and institution six-year graduation appear in Overview. Subgroup gaps are percentage points versus the institution six-year rate (%.0f%%).",
 			str(suc["cohort_year"]), floatOf(suc["institution_rate"]),
 		),
 		"figures": figs,
 	}
 }
 
+func collateBullets(figures []any) []any {
+	grouped := make([]any, 0, (len(figures)+3)/4)
+	for len(figures) > 0 {
+		end := min(4, len(figures))
+		grouped = append(grouped, map[string]any{"kind": "bullet-grid", "figures": figures[:end]})
+		figures = figures[end:]
+	}
+	return grouped
+}
+
 func affordabilityChapter(aff map[string]any) map[string]any {
 	figs := []any{}
 	for _, raw := range asSlice(aff["headlines"]) {
 		m := asMap(raw)
+		if id := str(m["metric_id"]); id == "average_net_price" || id == "pell_share" {
+			continue
+		}
 		figs = append(figs, map[string]any{
 			"kind":    "bullet",
 			"title":   str(m["display_name"]),
@@ -505,8 +520,8 @@ func affordabilityChapter(aff map[string]any) map[string]any {
 			"label": str(b["display_name"]),
 			"values": []any{
 				map[string]any{"label": "Marist", "value": b["marist"], "color": "marist"},
-				map[string]any{"label": "Peer median", "value": asMap(b["peer"])["median"], "color": "peer"},
-				map[string]any{"label": "Aspirant median", "value": asMap(b["aspirant"])["median"], "color": "aspirant"},
+				map[string]any{"label": "Peer median", "value": asMap(b["peer"])["median"], "mean": asMap(b["peer"])["mean"], "color": "peer"},
+				map[string]any{"label": "Aspirant median", "value": asMap(b["aspirant"])["median"], "mean": asMap(b["aspirant"])["mean"], "color": "aspirant"},
 			},
 		})
 	}
@@ -520,7 +535,7 @@ func affordabilityChapter(aff map[string]any) map[string]any {
 
 	return map[string]any{
 		"heading": "Affordability",
-		"body":    "Average net price and Pell share, plus income-band net prices for aided full-time first-time students.",
+		"body":    "Net prices by family income for aided full-time first-time students. Average net price and Pell share appear in Overview.",
 		"figures": figs,
 	}
 }
@@ -568,11 +583,15 @@ func profileChapter(ov, div, suc, aff map[string]any) map[string]any {
 		))
 	}
 
-	figs := []any{
-		map[string]any{"kind": "stats", "title": "Enrollment and admissions", "items": admissions},
-		map[string]any{"kind": "stats", "title": "Student outcomes", "items": outcomes},
-		map[string]any{"kind": "stats", "title": "Affordability and access", "items": costs},
-	}
+	figs := []any{map[string]any{
+		"kind":  "stats",
+		"title": "Marist at a glance",
+		"groups": []any{
+			map[string]any{"title": "Enrollment and admissions", "items": admissions},
+			map[string]any{"title": "Student outcomes", "items": outcomes},
+			map[string]any{"title": "Affordability and access", "items": costs},
+		},
+	}}
 
 	if fig := maristComposition(div); fig != nil {
 		figs = append(figs, fig)
@@ -679,6 +698,7 @@ func band(label, color string, g map[string]any) map[string]any {
 		"q1":     g["q1"],
 		"q3":     g["q3"],
 		"median": g["median"],
+		"mean":   g["mean"],
 	}
 }
 

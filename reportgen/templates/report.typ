@@ -9,6 +9,19 @@
 
 #let chapters = data.at("chapters", default: ())
 
+#let callout-box(callout) = block(
+  width: 100%,
+  inset: (left: 10pt, rest: 8pt),
+  stroke: (left: 2.5pt + marist-red),
+  fill: rgb("#f6f7f8"),
+)[
+  #if callout.at("label", default: "") != "" [
+    #text(size: 9pt, weight: "bold", fill: marist-red)[#callout.label]
+    #v(2pt)
+  ]
+  #text(size: 10pt)[#callout.at("body", default: "")]
+]
+
 #set page(
   paper: "us-letter",
   margin: (top: 1.5in, bottom: 1in, left: 1.25in, right: 1.25in),
@@ -99,6 +112,7 @@
 
 // —— Chapters ——
 #for chapter in chapters [
+  #pagebreak(weak: true)
   #let figures = chapter.at("figures", default: ())
   #block(breakable: false)[
     == #chapter.heading
@@ -127,20 +141,14 @@
     ]
   ]
 
-  #for callout in chapter.at("callouts", default: ()) [
+  #let callouts = chapter.at("callouts", default: ())
+  #if callouts.len() > 0 [
     #v(8pt)
-    #block(
-      width: 100%,
-      inset: (left: 10pt, rest: 8pt),
-      stroke: (left: 2.5pt + marist-red),
-      fill: rgb("#f6f7f8"),
-    )[
-      #if callout.at("label", default: "") != "" [
-        #text(size: 9pt, weight: "bold", fill: marist-red)[#callout.label]
-        #v(2pt)
-      ]
-      #text(size: 10pt)[#callout.at("body", default: "")]
-    ]
+    #grid(
+      columns: if callouts.len() > 1 { 2 } else { 1 },
+      gutter: 10pt,
+      ..callouts.map(callout-box),
+    )
   ]
 ]
 

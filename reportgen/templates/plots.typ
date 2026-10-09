@@ -190,7 +190,7 @@
 }
 
 // —— Bullet: Marist mark against peer/aspirant IQR bands ——
-#let bullet-iqr(figure) = {
+#let bullet-iqr(figure, compact: false) = {
   let bands = figure.at("bands", default: ()).filter(b => b.at("q1", default: none) != none)
   if bands.len() == 0 { return }
   let unit = figure.at("unit", default: "")
@@ -201,6 +201,7 @@
     nums.push(float(b.q1))
     nums.push(float(b.q3))
     nums.push(float(b.median))
+    if b.at("mean", default: none) != none { nums.push(float(b.mean)) }
   }
   let lo = calc.min(..nums)
   let hi = calc.max(..nums)
@@ -209,9 +210,10 @@
   let (blo, bhi) = clamp-bounds(lo - pad, hi + pad, unit, lo, hi)
   let sc = axis-scale(blo, bhi, target: 5)
 
-  let gutter-l = 2.0
-  let gutter-r = 2.6
-  let plot-w = PW - gutter-l - gutter-r
+  let total-w = if compact { 7.25 } else { PW }
+  let gutter-l = if compact { 1.25 } else { 2.0 }
+  let gutter-r = if compact { 1.55 } else { 2.6 }
+  let plot-w = total-w - gutter-l - gutter-r
   let row-h = 0.62
   let chart-h = bands.len() * row-h
 
@@ -232,12 +234,28 @@
         let c = series-fill(b.at("color", default: "peer"))
         rect((px(b.q1), y - 0.17), (px(b.q3), y + 0.17), fill: c.lighten(62%), stroke: none)
         line((px(b.median), y - 0.21), (px(b.median), y + 0.21), stroke: 1.8pt + c)
-        row-label(gutter-l, y, gutter-l, b.at("label", default: ""), size: 7.5pt)
+        if b.at("mean", default: none) != none {
+          line(
+            (px(b.mean), y - 0.17),
+            (px(b.mean), y + 0.17),
+            stroke: (paint: c, thickness: 1.2pt, dash: "dashed"),
+          )
+        }
+        row-label(gutter-l, y, gutter-l, b.at("label", default: ""), size: if compact { 6.5pt } else { 7.5pt })
         content(
           (gutter-l + plot-w + 0.18, y),
-          text(font: "Inter", size: 6.5pt, fill: brand.muted)[
-            med #fmt-val(b.median, unit)
-          ],
+          stack(
+            dir: ttb,
+            spacing: 0pt,
+            text(font: "Inter", size: if compact { 5.7pt } else { 6.5pt }, fill: brand.muted)[
+              med #fmt-val(b.median, unit)
+            ],
+            if b.at("mean", default: none) == none { none } else {
+              text(font: "Inter", size: if compact { 5.7pt } else { 6.5pt }, fill: brand.muted)[
+                avg #fmt-val(b.mean, unit)
+              ]
+            },
+          ),
           anchor: "west",
         )
       }
@@ -252,6 +270,17 @@
     })
     #fig-caption(figure)
   ]
+}
+
+#let bullet-grid(figure) = {
+  let figures = figure.at("figures", default: ())
+  if figures.len() == 0 { return }
+  grid(
+    columns: (1fr, 1fr),
+    gutter: 14pt,
+    row-gutter: 12pt,
+    ..figures.map(figure => bullet-iqr(figure, compact: true)),
+  )
 }
 
 // —— Line: multi-year trend with direct series labels ——
@@ -337,7 +366,10 @@
   if rows.len() == 0 { return }
   let unit = figure.at("unit", default: "")
 
-  let nums = rows.map(r => r.values.map(v => float(v.value))).flatten()
+  let nums = rows.map(r => r.values.map(v => (
+    float(v.value),
+    ..if v.at("mean", default: none) == none { () } else { (float(v.mean),) },
+  )).flatten()).flatten()
   if nums.len() == 0 { return }
   let nv = calc.max(..rows.map(r => r.values.len()))
   let lo = calc.min(..nums, 0.0)
@@ -397,6 +429,13 @@
           let x1 = px(v.value)
           let c = series-fill(v.at("color", default: "marist"))
           rect((zero, y - bar-h * 0.38), (x1, y + bar-h * 0.38), fill: c, stroke: none)
+          if v.at("mean", default: none) != none {
+            line(
+              (px(v.mean), y - bar-h * 0.48),
+              (px(v.mean), y + bar-h * 0.48),
+              stroke: (paint: c.darken(15%), thickness: 1.1pt, dash: "dashed"),
+            )
+          }
           content(
             (x1 + (if float(v.value) < 0 { -0.1 } else { 0.1 }), y),
             text(font: "Inter", size: 6.2pt, weight: "semibold", fill: brand.ink)[
@@ -413,6 +452,9 @@
         color: series-fill(v.at("color", default: "marist")),
       )))
     }
+    #if rows.any(r => r.values.any(v => v.at("mean", default: none) != none)) [
+      #text(font: "Inter", size: 7pt, fill: brand.muted)[Dashed ticks show comparison-group means.]
+    ]
     #fig-caption(figure)
   ]
 }
@@ -521,12 +563,19 @@
         }
       }
     })
-    #for s in series [
-      #v(5pt)
-      #text(font: "Inter", size: 7.5pt, weight: "semibold", fill: brand.ink)[#s.label]
-      #v(2pt)
-      #for (i, lab) in cats.enumerate() [
-        #box[
+    #v(6pt)
+    #{
+      let cells = ()
+      cells.push(box(width: 100%, inset: 3pt, fill: brand.grid)[
+        #text(font: "Inter", size: 7pt, weight: "semibold", fill: brand.ink)[Category]
+      ])
+      for s in series {
+        cells.push(box(width: 100%, inset: 3pt, fill: brand.grid)[
+          #align(right, text(font: "Inter", size: 7pt, weight: "semibold", fill: brand.ink)[#s.label])
+        ])
+      }
+      for (i, lab) in cats.enumerate() {
+        cells.push(box[
           #box(
             baseline: 1pt,
             width: 6pt,
@@ -535,13 +584,22 @@
             fill: category-palette.at(calc.rem(i, category-palette.len())),
           )
           #h(3pt)
-          #text(font: "Inter", size: 7pt, fill: brand.muted)[
-            #lab #fmt-val(s.at("display_values", default: s.values).at(i), "percent")
-          ]
-        ]
-        #h(8pt)
-      ]
-    ]
+          #text(font: "Inter", size: 7pt, fill: brand.muted)[#lab]
+        ])
+        for s in series {
+          let shown = s.at("display_values", default: s.values)
+          cells.push(align(right, text(font: "Inter", size: 7pt, fill: brand.muted)[
+            #fmt-val(shown.at(i), "percent")
+          ]))
+        }
+      }
+      grid(
+        columns: (2.5fr, ..series.map(_ => 1fr)),
+        column-gutter: 8pt,
+        row-gutter: 3pt,
+        ..cells,
+      )
+    }
     #fig-caption(figure)
   ]
 }
@@ -628,31 +686,51 @@
 // —— Stats: KPI cards, mirroring the dashboard profile page ——
 #let stat-grid(figure) = {
   let items = figure.at("items", default: ())
-  if items.len() == 0 { return }
+  let groups = figure.at("groups", default: ())
+  if items.len() == 0 and groups.len() == 0 { return }
+
+  let stat-card(it) = block(
+    width: 100%,
+    inset: 8pt,
+    radius: 2pt,
+    fill: rgb("#f6f7f8"),
+  )[
+    #set par(leading: 0.5em, justify: false)
+    #text(font: "Inter", size: 7.5pt, fill: brand.muted)[#it.at("label", default: "")]
+    #v(3pt)
+    #text(font: "Inter", size: 13pt, weight: "bold", fill: brand.ink)[
+      #it.at("value", default: "")
+    ]
+    #if it.at("note", default: "") != "" [
+      #v(2pt)
+      #text(font: "Inter", size: 7pt, fill: brand.muted)[#it.note]
+    ]
+  ]
 
   block(width: 100%, breakable: false)[
     #fig-title(figure)
-    #grid(
-      columns: (1fr, 1fr, 1fr),
-      gutter: 8pt,
-      ..items.map(it => block(
-        width: 100%,
-        inset: 8pt,
-        radius: 2pt,
-        fill: rgb("#f6f7f8"),
-      )[
-        #set par(leading: 0.5em, justify: false)
-        #text(font: "Inter", size: 7.5pt, fill: brand.muted)[#it.at("label", default: "")]
-        #v(3pt)
-        #text(font: "Inter", size: 13pt, weight: "bold", fill: brand.ink)[
-          #it.at("value", default: "")
-        ]
-        #if it.at("note", default: "") != "" [
-          #v(2pt)
-          #text(font: "Inter", size: 7pt, fill: brand.muted)[#it.note]
-        ]
-      ])
-    )
+    #if groups.len() > 0 [
+      #grid(
+        columns: groups.len(),
+        gutter: 10pt,
+        ..groups.map(group => block(width: 100%)[
+          #text(font: "Inter", size: 8pt, weight: "bold", fill: brand.ink)[
+            #group.at("title", default: "")
+          ]
+          #v(5pt)
+          #for (i, it) in group.at("items", default: ()).enumerate() [
+            #stat-card(it)
+            #if i < group.at("items", default: ()).len() - 1 [#v(6pt)]
+          ]
+        ]),
+      )
+    ] else [
+      #grid(
+        columns: (1fr, 1fr, 1fr),
+        gutter: 8pt,
+        ..items.map(stat-card),
+      )
+    ]
     #fig-caption(figure)
   ]
 }
@@ -667,6 +745,8 @@
     line-trend(figure)
   } else if kind == "bullet" {
     bullet-iqr(figure)
+  } else if kind == "bullet-grid" {
+    bullet-grid(figure)
   } else if kind == "stacked" {
     stacked-compose(figure)
   } else if kind == "grouped" {
