@@ -6,6 +6,11 @@
 #let marist-red = rgb("#c91235")
 #let greystone = rgb("#63666f")
 #let body-ink = rgb("#202127")
+#let link-blue = rgb("#005ea8")
+
+#let external-link(url, body) = text(fill: link-blue)[
+  #underline[#link(url)[#body]]
+]
 
 #let chapters = data.at("chapters", default: ())
 
@@ -116,6 +121,52 @@
   indent: 0pt,
 )
 
+#let date-guide = data.at("date_guide", default: ())
+#if date-guide.len() > 0 [
+  #v(8pt)
+  #text(font: "Source Serif Pro", size: 12pt, weight: "semibold")[Data guide]
+  #v(3pt)
+  #table(
+    columns: (1.15fr, 2.85fr),
+    inset: (x: 4pt, y: 2pt),
+    stroke: none,
+    ..date-guide.map(item => (
+      [#text(size: 8pt, weight: "semibold")[#item.term]],
+      [#set par(justify: false)
+       #text(size: 8pt, fill: greystone)[#item.meaning]],
+    )).flatten(),
+  )
+]
+
+#let comparison-groups = data.at("comparison_groups", default: ())
+#if comparison-groups.len() > 0 [
+  #v(8pt)
+  #text(font: "Source Serif Pro", size: 12pt, weight: "semibold")[Comparison groups]
+  #v(3pt)
+  #table(
+    columns: (1.2fr, 1.45fr, 3.35fr),
+    inset: (x: 5pt, y: 4pt),
+    stroke: (x: none, y: 0.5pt + rgb("#d9dae4")),
+    fill: (x, y) => if y == 0 { rgb("#f1f2f4") } else { white },
+    table.header(
+      [#text(size: 8pt, weight: "bold")[Group]],
+      [#text(size: 8pt, weight: "bold")[Role]],
+      [#text(size: 8pt, weight: "bold")[Institutions]],
+    ),
+    ..comparison-groups.map(group => (
+      [#text(size: 7.5pt, weight: "semibold")[#group.label]],
+      [#set par(justify: false)
+       #text(size: 7.5pt, fill: greystone)[#group.role]],
+      [#set par(justify: false)
+       #text(size: 7.5pt, fill: greystone)[#group.institutions]],
+    )).flatten(),
+  )
+  #if data.at("comparison_context_url", default: "") != "" [
+    #v(3pt)
+    #text(size: 8pt, fill: greystone)[Neither group is a ranking or prediction. #external-link(data.comparison_context_url)[See Marist's official peer and aspirant groups].]
+  ]
+]
+
 // —— Chapters ——
 #for chapter in chapters [
   #pagebreak(weak: true)
@@ -189,6 +240,6 @@
   )
   #if data.at("source_url", default: "") != "" [
     #v(6pt)
-    #text(size: 9pt, fill: greystone)[Official source: #link(data.source_url)[NCES/IPEDS Use the Data].]
+    #text(size: 9pt, fill: greystone)[Official source: #external-link(data.source_url)[NCES/IPEDS Use the Data].]
   ]
 ]

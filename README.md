@@ -91,6 +91,13 @@ See `examples/sample.json`.
 Campus Involvement (live CampusGroups feed) is omitted. Empty-figure chapters
 are dropped (e.g. no trends chapter for the earliest collection).
 
+## Future exploration
+
+- Optional key findings generated from the report data, limited to neutral
+  comparisons and explicit trend summaries. Avoid causal claims and subjective
+  labels such as “good” or “bad”; keep the report useful when prose generation
+  is unavailable.
+
 ## Layout
 
 ```

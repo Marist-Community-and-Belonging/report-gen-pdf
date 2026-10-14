@@ -32,17 +32,28 @@ func TestBuildFromProcessed(t *testing.T) {
 		t.Fatal(err)
 	}
 	var doc struct {
-		Intro      string `json:"intro"`
+		Intro                string `json:"intro"`
+		ComparisonContextURL string `json:"comparison_context_url"`
+		DateGuide            []struct {
+			Term string `json:"term"`
+		} `json:"date_guide"`
+		ComparisonGroups []struct {
+			Label        string `json:"label"`
+			Role         string `json:"role"`
+			Institutions string `json:"institutions"`
+		} `json:"comparison_groups"`
 		References []struct {
 			Section string `json:"section"`
 			Source  string `json:"source"`
 		} `json:"references"`
 		Chapters []struct {
 			Heading string `json:"heading"`
+			Body    string `json:"body"`
 			Figures []struct {
-				Kind  string `json:"kind"`
-				Title string `json:"title"`
-				Bands []struct {
+				Kind    string `json:"kind"`
+				Title   string `json:"title"`
+				Caption string `json:"caption"`
+				Bands   []struct {
 					Mean float64 `json:"mean"`
 				} `json:"bands"`
 				Figures []struct {
@@ -60,12 +71,32 @@ func TestBuildFromProcessed(t *testing.T) {
 	if err := json.Unmarshal(b, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains([]byte(doc.Intro), []byte("final NCES/IPEDS Complete Data Files")) ||
+	if !bytes.Contains([]byte(doc.Intro), []byte("Integrated Postsecondary Education Data System")) ||
 		!bytes.Contains([]byte(doc.Intro), []byte("19 institutions: Marist, 10 peers, and 8 aspirants")) {
 		t.Errorf("intro omits source or comparison context: %q", doc.Intro)
 	}
 	if strings.Contains(strings.ToLower(doc.Intro), "dashboard") {
 		t.Errorf("intro references dashboard: %q", doc.Intro)
+	}
+	if len(doc.DateGuide) != 6 {
+		t.Errorf("want 6 data definitions, got %d", len(doc.DateGuide))
+	}
+	if len(doc.ComparisonGroups) != 2 || !strings.Contains(doc.ComparisonGroups[0].Institutions, "Elon University") || !strings.Contains(doc.ComparisonGroups[1].Institutions, "Villanova University") {
+		t.Errorf("comparison groups omit expected institutions: %+v", doc.ComparisonGroups)
+	}
+	if doc.ComparisonContextURL != "https://www.marist.edu/offices/institutional-research/peer-aspirant" {
+		t.Errorf("unexpected comparison context URL: %q", doc.ComparisonContextURL)
+	}
+	if !strings.Contains(doc.ComparisonGroups[0].Role, "primary official") || !strings.Contains(doc.ComparisonGroups[1].Role, "Second official") {
+		t.Errorf("comparison roles omit dashboard context: %+v", doc.ComparisonGroups)
+	}
+	for _, want := range []string{"not one shared measurement period", "not adjusted for inflation", "never zero", "American Indian or Alaska Native", "Native Hawaiian or Other Pacific Islander", "middle 50%"} {
+		if !bytes.Contains(b, []byte(want)) {
+			t.Errorf("report omits dashboard guidance or data %q", want)
+		}
+	}
+	if bytes.Contains(b, []byte("Source: DRV")) {
+		t.Error("figure captions repeat raw source codes from References")
 	}
 	referenceText := ""
 	for _, reference := range doc.References {
@@ -91,6 +122,7 @@ func TestBuildFromProcessed(t *testing.T) {
 	foundSubgroupRates := false
 	foundCompositionValues := false
 	foundComparisonMeans := false
+	foundTitles := map[string]bool{}
 	for i, c := range doc.Chapters {
 		if c.Heading != want[i] {
 			t.Errorf("chapter %d: want %q, got %q", i, want[i], c.Heading)
@@ -98,7 +130,17 @@ func TestBuildFromProcessed(t *testing.T) {
 		if len(c.Figures) == 0 {
 			t.Errorf("chapter %q has no figures", c.Heading)
 		}
+		if c.Heading == "Overview" && strings.Contains(c.Body, "favorable") {
+			t.Errorf("overview assigns value judgments: %q", c.Body)
+		}
+		if c.Heading == "Success and equity" && !strings.Contains(c.Body, "counts are unavailable") {
+			t.Errorf("success chapter omits subgroup-count limitation: %q", c.Body)
+		}
+		if strings.Contains(c.Body, "cohort cohort") {
+			t.Errorf("chapter %q duplicates generated wording: %q", c.Heading, c.Body)
+		}
 		for _, f := range c.Figures {
+			foundTitles[f.Title] = true
 			switch f.Kind {
 			case "bar", "grouped", "line", "bullet", "bullet-grid", "stacked", "scatter", "stats":
 			default:
@@ -109,6 +151,7 @@ func TestBuildFromProcessed(t *testing.T) {
 			}
 			titles := []string{f.Title}
 			for _, nested := range f.Figures {
+				foundTitles[nested.Title] = true
 				titles = append(titles, nested.Title)
 				for _, band := range nested.Bands {
 					foundComparisonMeans = foundComparisonMeans || band.Mean != 0
@@ -138,6 +181,16 @@ func TestBuildFromProcessed(t *testing.T) {
 	}
 	if !foundComparisonMeans {
 		t.Error("comparison charts omit dashboard means")
+	}
+	for _, title := range []string{
+		"Marist at a glance", "Marist undergraduate composition", "Undergraduate composition",
+		"Access indicators", "Diversity index, multi-year", "Diversity and graduation",
+		"Four-year graduation", "Pell-recipient graduation", "Equity gaps vs institution six-year rate",
+		"Subgroup six-year graduation rates", "Net price by family income band",
+	} {
+		if !foundTitles[title] {
+			t.Errorf("report omits dashboard figure %q", title)
+		}
 	}
 }
 

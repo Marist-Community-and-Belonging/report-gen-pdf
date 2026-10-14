@@ -66,7 +66,7 @@ func BuildFromFS(content fs.FS, processedDir string, year int) ([]byte, error) {
 			"release_type":    str(rel["release_type"]),
 			"note":            "Retrieved " + str(rel["retrieved_at"]),
 		},
-		"intro": "Source data come from final NCES/IPEDS Complete Data Files for enrollment, admissions, retention, graduation, student aid, and net price. " +
+		"intro": "Source data come from final NCES/IPEDS (Integrated Postsecondary Education Data System) Complete Data Files for enrollment, admissions, retention, graduation, student aid, and net price. " +
 			fmt.Sprintf(
 				"The %s collection covers %.0f institutions: Marist, %.0f peers, and %.0f aspirants. Marist is excluded from comparison-group summaries. ",
 				collYear,
@@ -74,11 +74,21 @@ func BuildFromFS(content fs.FS, processedDir string, year int) ([]byte, error) {
 				floatOf(asMap(firstMetric["peer"])["count"]),
 				floatOf(asMap(firstMetric["aspirant"])["count"]),
 			) +
-			"Each figure identifies its reporting period or cohort.",
-		"chapters":       chapters,
-		"references":     sourceReferences(ov),
-		"reference_note": fmt.Sprintf("Final NCES/IPEDS Complete Data Files; retrieved %s. Comparison summaries exclude Marist and use institution-level values.", str(rel["retrieved_at"])),
-		"source_url":     "https://nces.ed.gov/ipeds/use-the-data",
+			"Each figure identifies its fall term, academic year, or entering cohort.",
+		"date_guide": []any{
+			map[string]any{"term": "Collection year", "meaning": "Federal release package; not one shared measurement period."},
+			map[string]any{"term": "Fall year", "meaning": "Enrollment and admissions snapshot."},
+			map[string]any{"term": "Academic year", "meaning": "Student-aid and net-price reporting period."},
+			map[string]any{"term": "Entering cohort", "meaning": "Starting class followed through graduation outcomes."},
+			map[string]any{"term": "Dollar values", "meaning": "Nominal amounts; not adjusted for inflation."},
+			map[string]any{"term": "Unavailable", "meaning": "Missing or suppressed; never zero."},
+		},
+		"chapters":               chapters,
+		"references":             sourceReferences(ov),
+		"comparison_groups":      comparisonGroups(ov),
+		"comparison_context_url": "https://www.marist.edu/offices/institutional-research/peer-aspirant",
+		"reference_note":         fmt.Sprintf("Final NCES/IPEDS Complete Data Files; retrieved %s. Comparison summaries exclude Marist and use institution-level values.", str(rel["retrieved_at"])),
+		"source_url":             "https://nces.ed.gov/ipeds/use-the-data",
 	}
 	return json.MarshalIndent(doc, "", "  ")
 }
@@ -137,11 +147,11 @@ func overviewChapter(ov map[string]any) map[string]any {
 	return map[string]any{
 		"heading": "Overview",
 		"anchor":  "overview",
-		"body":    "Higher is favorable except average net price, where lower is favorable.",
+		"body":    "Comparisons are descriptive; higher or lower is not automatically better.",
 		"figures": collateBullets(figs),
 		"callouts": []any{map[string]any{
-			"label": "Reading IQR bullets",
-			"body":  "Each shaded band spans Q1–Q3 for the comparison group. The solid tick is the median, the dashed tick is the mean, and the red line is Marist.",
+			"label": "How to read comparison bands",
+			"body":  "Each shaded band shows the middle 50% of the comparison group. The solid tick is the median (middle institution), the dashed tick is the mean (average), and the red line is Marist.",
 		}},
 	}
 }
@@ -254,9 +264,9 @@ func diversityChapter(div map[string]any, content fs.FS, dir string, year int) m
 			floatOf(shares["american_indian"]) + floatOf(shares["pacific_islander"]) +
 			floatOf(shares["multiracial"])
 		callouts = append(callouts, map[string]any{
-			"label": "Underrepresented minority",
+			"label": "Selected race/ethnicity categories",
 			"body": fmt.Sprintf(
-				"Marist is %.1f%%. This combines Black, Hispanic or Latino, American Indian or Alaska Native, Native Hawaiian or Pacific Islander, and multiracial IPEDS categories.",
+				"Combined Marist share: %.1f%%. Includes Black, Hispanic or Latino, American Indian or Alaska Native, Native Hawaiian or Pacific Islander, and multiracial IPEDS categories.",
 				underrepresented,
 			),
 		})
@@ -282,7 +292,7 @@ func diversityChapter(div map[string]any, content fs.FS, dir string, year int) m
 				"title":      "Undergraduate composition",
 				"unit":       "percent",
 				"categories": catNames,
-				"caption":    str(meth["composition"]),
+				"caption":    str(meth["composition"]) + " Larger institutions contribute more to group totals.",
 				"series":     series,
 			},
 			accessFigure(div),
@@ -324,7 +334,7 @@ func accessFigure(div map[string]any) map[string]any {
 		"kind":    "grouped",
 		"title":   "Access indicators",
 		"unit":    "percent",
-		"caption": "Group figures are enrollment-weighted aggregates, not medians.",
+		"caption": "Group figures are enrollment-weighted aggregates, not medians; larger institutions contribute more.",
 		"rows":    rows,
 	}
 }
@@ -435,9 +445,6 @@ func successChapter(suc map[string]any) map[string]any {
 	section := ""
 	for _, raw := range asSlice(suc["subgroups"]) {
 		sg := asMap(raw)
-		if sg["gap"] == nil {
-			continue
-		}
 		if c := str(sg["category"]); c != section {
 			section = c
 			gapRows = append(gapRows, map[string]any{"label": c, "header": true, "values": []any{}})
@@ -475,7 +482,7 @@ func successChapter(suc map[string]any) map[string]any {
 		"heading": "Success and equity",
 		"anchor":  "success-equity",
 		"body": fmt.Sprintf(
-			"Additional outcomes for the %s context; retention and institution six-year graduation appear in Overview. Subgroup gaps are percentage points versus the institution six-year rate (%.0f%%).",
+			"Four-year and Pell-recipient outcomes use the %s. Gaps are percentage points from Marist's institution rate (%.0f%%). Subgroup counts are unavailable in this extract.",
 			str(suc["cohort_year"]), floatOf(suc["institution_rate"]),
 		),
 		"figures": figs,
@@ -649,9 +656,6 @@ func metricCaption(m map[string]any) string {
 	if cohort := str(m["cohort_year"]); cohort != "" {
 		parts = append(parts, "Cohort: "+cohort)
 	}
-	if component, variable := str(m["source_component"]), str(m["source_variable"]); component != "" || variable != "" {
-		parts = append(parts, "Source: "+strings.TrimSpace(component+" "+variable))
-	}
 	return strings.Join(parts, ". ") + "."
 }
 
@@ -693,6 +697,25 @@ func sourceReferences(ov map[string]any) []any {
 			"source":   source("pell_share") + "; " + source("average_net_price") + " NPT412-NPT452",
 			"coverage": "Pell participation, average net price, and net price by family-income band.",
 		},
+	}
+}
+
+func comparisonGroups(ov map[string]any) []any {
+	metrics := asSlice(ov["metrics"])
+	if len(metrics) == 0 {
+		return nil
+	}
+	names := map[string][]string{"peer": {}, "aspirant": {}}
+	for _, raw := range asSlice(asMap(metrics[0])["institutions"]) {
+		inst := asMap(raw)
+		group := str(inst["group"])
+		if _, ok := names[group]; ok {
+			names[group] = append(names[group], str(inst["institution_name"]))
+		}
+	}
+	return []any{
+		map[string]any{"label": fmt.Sprintf("Peer institutions (%d)", len(names["peer"])), "role": "Marist's primary official comparison group.", "institutions": strings.Join(names["peer"], ", ")},
+		map[string]any{"label": fmt.Sprintf("Aspirant institutions (%d)", len(names["aspirant"])), "role": "Second official group used for additional context.", "institutions": strings.Join(names["aspirant"], ", ")},
 	}
 }
 

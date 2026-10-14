@@ -366,7 +366,7 @@
   if rows.len() == 0 { return }
   let unit = figure.at("unit", default: "")
 
-  let nums = rows.map(r => r.values.map(v => (
+  let nums = rows.map(r => r.values.filter(v => v.at("value", default: none) != none).map(v => (
     float(v.value),
     ..if v.at("mean", default: none) == none { () } else { (float(v.mean),) },
   )).flatten()).flatten()
@@ -426,33 +426,41 @@
 
         for (vi, v) in r.values.enumerate() {
           let y = first - vi * bar-h
-          let x1 = px(v.value)
           let c = series-fill(v.at("color", default: "marist"))
-          rect((zero, y - bar-h * 0.38), (x1, y + bar-h * 0.38), fill: c, stroke: none)
-          if v.at("mean", default: none) != none {
-            circle(
-              (px(v.mean), y),
-              radius: 0.06,
-              fill: white,
-              stroke: 1pt + c.darken(15%),
+          if v.at("value", default: none) == none {
+            content(
+              (gutter-l + plot-w + gutter-r, y),
+              text(font: "Inter", size: 6.2pt, weight: "semibold", fill: brand.muted)[Unavailable],
+              anchor: "east",
+            )
+          } else {
+            let x1 = px(v.value)
+            rect((zero, y - bar-h * 0.38), (x1, y + bar-h * 0.38), fill: c, stroke: none)
+            if v.at("mean", default: none) != none {
+              circle(
+                (px(v.mean), y),
+                radius: 0.06,
+                fill: white,
+                stroke: 1pt + c.darken(15%),
+              )
+            }
+            let label-x = if sc.lo >= 0 {
+              gutter-l + plot-w + gutter-r
+            } else {
+              x1 + (if float(v.value) < 0 { -0.22 } else { 0.22 })
+            }
+            content(
+              (label-x, y),
+              box(
+                inset: (left: 1pt, right: 1pt),
+                fill: white,
+                text(font: "Inter", size: 6.2pt, weight: "semibold", fill: brand.ink)[
+                  #fmt-val(v.value, unit)
+                ],
+              ),
+              anchor: if sc.lo >= 0 or float(v.value) < 0 { "east" } else { "west" },
             )
           }
-          let label-x = if sc.lo >= 0 {
-            gutter-l + plot-w + gutter-r
-          } else {
-            x1 + (if float(v.value) < 0 { -0.22 } else { 0.22 })
-          }
-          content(
-            (label-x, y),
-            box(
-              inset: (left: 1pt, right: 1pt),
-              fill: white,
-              text(font: "Inter", size: 6.2pt, weight: "semibold", fill: brand.ink)[
-                #fmt-val(v.value, unit)
-              ],
-            ),
-            anchor: if sc.lo >= 0 or float(v.value) < 0 { "east" } else { "west" },
-          )
         }
       }
     })
